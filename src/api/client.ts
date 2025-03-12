@@ -13,19 +13,9 @@ export interface PrestApiClientOptions {
   base_url: string;
 
   /**
-   * The username for authentication with the Prest API.
+   * The name of the authHeader.
    */
-  user_name: string;
-
-  /**
-   * The password for authentication with the Prest API.
-   */
-  password: string;
-
-  /**
-   * The name of the database to connect to.
-   */
-  database: string;
+  authHeader: string;
 }
 
 /**
@@ -119,12 +109,12 @@ class ChainedQuery {
    * ```typescript
    * // Retrieve only the 'id', 'name', and 'price' fields from products
    * const query = client.table('products').list()
-   *   .select('id', 'name', 'price')
+   *   .select('id, name, price')
    *   .execute();
    * ```
    */
-  select(...fields: string[]): ChainedQuery {
-    this.chainedOperations.push(stringify({ _select: fields.join(',') }));
+  select(fields: string): ChainedQuery {
+    this.chainedOperations.push(stringify({ _select: fields}));
     return this;
   }
 
@@ -287,14 +277,253 @@ class ChainedQuery {
    * ```typescript
    * // Retrieve products with the 'category' field equal to 'electronics'
    * const query = client.table('products').list()
-   *   .filterEqual('category', 'electronics')
+   *   .eq('category', 'electronics')
    *   .execute();
    * ```
    */
-  filterEqual(field: string, value: any): ChainedQuery {
+  eq(field: string, value: any): ChainedQuery {
     this.chainedOperations.push(`${field}=${encodeURIComponent(value)}`);
     return this;
   }
+
+ /**
+   * Adds a greater than filter to the query, specifying that a field must be greater than a certain value.
+   *
+   * @param field - The field to filter by.
+   * @param value - The value that the field must be greater than.
+   * @returns The ChainedQuery instance to allow for method chaining.
+   *
+   * @example
+   * ```typescript
+   * // Retrieve products with price greater than 100
+   * const query = client.table('products').list()
+   *   .gt('price', 100)
+   *   .execute();
+   * ```
+   */
+  gt(field: string, value: any): ChainedQuery {
+    this.chainedOperations.push(`${field}=$gt.${encodeURIComponent(value)}`);
+    return this;
+  }
+  
+  /**
+   * Adds a greater than or equal to filter to the query.
+   *
+   * @param field - The field to filter by.
+   * @param value - The value that the field must be greater than or equal to.
+   * @returns The ChainedQuery instance to allow for method chaining.
+   *
+   * @example
+   * ```typescript
+   * // Retrieve products with price greater than or equal to 100
+   * const query = client.table('products').list()
+   *   .gte('price', 100)
+   *   .execute();
+   * ```
+   */
+  gte(field: string, value: any): ChainedQuery {
+    this.chainedOperations.push(`${field}=$gte.${encodeURIComponent(value)}`);
+    return this;
+  }
+
+  /**
+   * Adds a less than filter to the query.
+   *
+   * @param field - The field to filter by.
+   * @param value - The value that the field must be less than.
+   * @returns The ChainedQuery instance to allow for method chaining.
+   *
+   * @example
+   * ```typescript
+   * // Retrieve products with price less than 100
+   * const query = client.table('products').list()
+   *   .lt('price', 100)
+   *   .execute();
+   * ```
+   */
+  lt(field: string, value: any): ChainedQuery {
+    this.chainedOperations.push(`${field}=$lt.${encodeURIComponent(value)}`);
+    return this;
+  }
+
+  /**
+   * Adds a less than or equal to filter to the query.
+   *
+   * @param field - The field to filter by.
+   * @param value - The value that the field must be less than or equal to.
+   * @returns The ChainedQuery instance to allow for method chaining.
+   *
+   * @example
+   * ```typescript
+   * // Retrieve products with price less than or equal to 100
+   * const query = client.table('products').list()
+   *   .lte('price', 100)
+   *   .execute();
+   * ```
+   */
+  lte(field: string, value: any): ChainedQuery {
+    this.chainedOperations.push(`${field}=$lte.${encodeURIComponent(value)}`);
+    return this;
+  }
+
+  /**
+   * Adds a not equal filter to the query.
+   *
+   * @param field - The field to filter by.
+   * @param value - The value that the field must not be equal to.
+   * @returns The ChainedQuery instance to allow for method chaining.
+   *
+   * @example
+   * ```typescript
+   * // Retrieve products with status not equal to 'discontinued'
+   * const query = client.table('products').list()
+   *   .ne('status', 'discontinued')
+   *   .execute();
+   * ```
+   */
+  ne(field: string, value: any): ChainedQuery {
+    this.chainedOperations.push(`${field}=$ne.${encodeURIComponent(value)}`);
+    return this;
+  }
+
+  /**
+   * Adds an IN filter to the query, specifying that a field must match any value in the provided array.
+   *
+   * @param field - The field to filter by.
+   * @param values - Array of values that the field can match.
+   * @returns The ChainedQuery instance to allow for method chaining.
+   *
+   * @example
+   * ```typescript
+   * // Retrieve products with category_id in [1, 2, 3]
+   * const query = client.table('products').list()
+   *   .in('category_id', [1, 2, 3])
+   *   .execute();
+   * ```
+   */
+  in(field: string, values: any[]): ChainedQuery {
+    this.chainedOperations.push(`${field}=$in.${values.join(',')}`);
+    return this;
+  }
+
+  /**
+   * Adds a NOT IN filter to the query, specifying that a field must not match any value in the provided array.
+   *
+   * @param field - The field to filter by.
+   * @param values - Array of values that the field must not match.
+   * @returns The ChainedQuery instance to allow for method chaining.
+   *
+   * @example
+   * ```typescript
+   * // Retrieve products with category_id not in [1, 2, 3]
+   * const query = client.table('products').list()
+   *   .notIn('category_id', [1, 2, 3])
+   *   .execute();
+   * ```
+   */
+  notIn(field: string, values: any[]): ChainedQuery {
+    this.chainedOperations.push(`${field}=$nin.${values.join(',')}`);
+    return this;
+  }
+
+  /**
+   * Adds a NULL filter to the query, specifying that a field must be NULL.
+   *
+   * @param field - The field to filter by.
+   * @returns The ChainedQuery instance to allow for method chaining.
+   *
+   * @example
+   * ```typescript
+   * // Retrieve products with null description
+   * const query = client.table('products').list()
+   *   .null('description')
+   *   .execute();
+   * ```
+   */
+  null(field: string): ChainedQuery {
+    this.chainedOperations.push(`${field}=$null`);
+    return this;
+  }
+
+  /**
+   * Adds a NOT NULL filter to the query, specifying that a field must not be NULL.
+   *
+   * @param field - The field to filter by.
+   * @returns The ChainedQuery instance to allow for method chaining.
+   *
+   * @example
+   * ```typescript
+   * // Retrieve products with non-null description
+   * const query = client.table('products').list()
+   *   .notNull('description')
+   *   .execute();
+   * ```
+   */
+  notNull(field: string): ChainedQuery {
+    this.chainedOperations.push(`${field}=$notnull`);
+    return this;
+  }
+
+  /**
+   * Adds a LIKE filter to the query for pattern matching (case-sensitive).
+   *
+   * @param field - The field to filter by.
+   * @param value - The pattern to match (using SQL LIKE syntax).
+   * @returns The ChainedQuery instance to allow for method chaining.
+   *
+   * @example
+   * ```typescript
+   * // Retrieve products with names starting with 'Apple'
+   * const query = client.table('products').list()
+   *   .like('name', 'Apple%')
+   *   .execute();
+   * ```
+   */
+  like(field: string, value: string): ChainedQuery {
+    this.chainedOperations.push(`${field}=$like.${encodeURIComponent(value)}`);
+    return this;
+  }
+
+  /**
+   * Adds an ILIKE filter to the query for case-insensitive pattern matching.
+   *
+   * @param field - The field to filter by.
+   * @param value - The pattern to match (using SQL ILIKE syntax).
+   * @returns The ChainedQuery instance to allow for method chaining.
+   *
+   * @example
+   * ```typescript
+   * // Retrieve products with names containing 'phone' (case-insensitive)
+   * const query = client.table('products').list()
+   *   .ilike('name', '%phone%')
+   *   .execute();
+   * ```
+   */
+  ilike(field: string, value: string): ChainedQuery {
+    this.chainedOperations.push(`${field}=$ilike.${encodeURIComponent(value)}`);
+    return this;
+  }
+
+  /**
+   * Adds a NOT LIKE filter to the query for pattern exclusion (case-sensitive).
+   *
+   * @param field - The field to filter by.
+   * @param value - The pattern to exclude (using SQL LIKE syntax).
+   * @returns The ChainedQuery instance to allow for method chaining.
+   *
+   * @example
+   * ```typescript
+   * // Retrieve products with names not starting with 'Test'
+   * const query = client.table('products').list()
+   *   .notLike('name', 'Test%')
+   *   .execute();
+   * ```
+   */
+  notLike(field: string, value: string): ChainedQuery {
+    this.chainedOperations.push(`${field}=$notlike.${encodeURIComponent(value)}`);
+    return this;
+  }
+
   /**
    * Adds a Sum function to the query, calculating the sum of values in the specified field.
    *
@@ -466,31 +695,12 @@ class ChainedQuery {
    * @param start (optional) The lower bound of the range (inclusive).
    * @param end (optional) The upper bound of the range (inclusive).
    * @returns A chained query object for further building the query.
-   *
-   * @example
-   * ```typescript
-   * // Filter categories where 'category_id' is between 200 and 300 (inclusive)
-   * const response = await client
-   *   .table('categories')
-   *   .list()
-   *   .filterRange('category_id', 200, 300)
-   *   .execute();
-   * ```
-   *
-   * @example
-   * // Filter categories where 'category_id' is greater than or equal to 200
-   * const response = await client
-   *   .table('categories')
-   *   .list()
-   *   .filterRange('category_id', 200)
-   *   .execute();
-   * ```
    */
   filterRange(field: string, start?: any, end?: any): ChainedQuery {
-    if (start !== undefined) {
+    if (start === 0 || start) {
       this.chainedOperations.push(`${field}=$gte.${encodeURIComponent(start)}`);
     }
-    if (end !== undefined) {
+    if (end === 0 || end) {
       this.chainedOperations.push(`${field}=$lte.${encodeURIComponent(end)}`);
     }
     return this;
@@ -585,6 +795,8 @@ class ChainedQuery {
     return this;
   }
 
+
+
   /**
    * Executes the chained query operations and returns the result.
    *
@@ -660,9 +872,7 @@ export class PrestApiClient {
    */
   private async createClient() {
     try {
-      const username = this.options.user_name;
-      const password = this.options.password;
-      const authHeader = 'Basic ' + btoa(username + ':' + password);
+      const authHeader = this.options.authHeader;
 
       this.client = {
         get: async (url: string) => {
@@ -912,38 +1122,85 @@ export class PrestApiClient {
 
     return {
       list: (): ChainedQuery => {
-        const baseUrl = `${this.base_url}/${this.database}/${schemaName}/${tableName}`;
+        const baseUrl = `${this.base_url}/${schemaName}/${tableName}`;
         return new ChainedQuery(this, baseUrl, 'get', null);
       },
 
       show: (): ChainedQuery => {
-        const baseUrl = `${this.base_url}/show/${this.database}/${schemaName}/${tableName}`;
+        const baseUrl = `${this.base_url}/show/${schemaName}/${tableName}`;
         return new ChainedQuery(this, baseUrl, 'get', null);
       },
       insert: (data: any): ChainedQuery => {
-        const baseUrl = `${this.base_url}/${this.database}/${schemaName}/${tableName}`;
+        const baseUrl = `${this.base_url}/${schemaName}/${tableName}`;
         return new ChainedQuery(this, baseUrl, 'post', data);
       },
       batchInsert: (data: any): ChainedQuery => {
-        const baseUrl = `${this.base_url}/batch/${this.database}/${schemaName}/${tableName}`;
+        const baseUrl = `${this.base_url}/batch/${schemaName}/${tableName}`;
         return new ChainedQuery(this, baseUrl, 'post', data);
       },
       update: (data: any): ChainedQuery => {
-        const baseUrl = `${this.base_url}/${this.database}/${schemaName}/${tableName}`;
+        const baseUrl = `${this.base_url}/${schemaName}/${tableName}`;
         return new ChainedQuery(this, baseUrl, 'put', data);
       },
       delete: (): ChainedQuery => {
-        const baseUrl = `${this.base_url}/${this.database}/${schemaName}/${tableName}`;
+        const baseUrl = `${this.base_url}/${schemaName}/${tableName}`;
         return new ChainedQuery(this, baseUrl, 'delete', null);
       },
     };
   }
 
   /**
-   * Gets the name of the database to which the client is connected.
+   * Returns an object for interacting with a specific table in the database.
+   *
+   * @param Script - The name of the table.
+   * @returns An object with methods for interacting with the table.
    */
-  get database(): string {
-    return this.options.database;
+  query(scriptName: string | undefined): {
+    /**
+     * Retrieves the structure of the specified table.
+     *
+     * @returns A promise that resolves with the table structure.
+     * @throws An error if fetching the table structure fails.
+     *
+     * @example
+     * const response = await client.table('user').list();
+     * // Queries the rows of the 'user' table. Public schema is used by default.
+     * // Executes GET `/:database/:schema/:table`.
+     *
+     * @example
+     * const response = await client.table('private.user').list();
+     * // Retrieves the rows of the 'user' table in the 'private' schema.
+     * // Executes GET `/:database/:schema/:table`.
+     *
+     * @example
+     * const response = await client.table('public.').list();
+     * // Retrieves a list of tables in the 'public' schema.
+     * // Executes GET `/:database/:schema`.
+     * // Note: The dot at the end is to ignore the table name.
+     */
+    list: () => ChainedQuery;
+  } {
+    if (!this.client) {
+      throw new Error('Client not initialized');
+    }
+
+    if (!scriptName) {
+      throw new Error('script name is required');
+    }
+
+    let path: string = '';
+    if (scriptName.includes('.')) {
+      const parts = scriptName.split('.');
+      path = parts[0] || scriptName;
+      scriptName = parts[1];
+    }
+
+    return {
+      list: (): ChainedQuery => {
+        const baseUrl = `${this.base_url}/_queries/${path}/${scriptName}`;
+        return new ChainedQuery(this, baseUrl, 'get', null);
+      }
+    };
   }
 
   /**
