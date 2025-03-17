@@ -27,7 +27,7 @@ export interface PrestApiClientOptions {
 class ChainedQuery {
   private client: PrestApiClient;
   private baseUrl: string;
-  private reqType: 'get' | 'post' | 'put' | 'delete';
+  private reqType: 'get' | 'post' | 'put' | 'delete' | 'export';
   private body: any;
   private rendererArg: 'json' | 'xml' = 'json';
   private sqlFunctions: string[] = [];
@@ -44,7 +44,7 @@ class ChainedQuery {
   constructor(
     client: PrestApiClient,
     baseUrl: string,
-    reqType: 'get' | 'post' | 'put' | 'delete',
+    reqType: 'get' | 'post' | 'put' | 'delete' | 'export',
     body: any,
   ) {
     this.client = client;
@@ -822,10 +822,14 @@ class ChainedQuery {
       const httpClientMethod = this.client.getHttpClientMethod(this.reqType);
       const response = await httpClientMethod(chainedUrl, this.body);
 
-      if (this.rendererArg === 'json') {
-        return response.json();
-      } else {
-        return response.text();
+      if (this.reqType === 'export'){
+        return response.blob();
+      }else{
+        if (this.rendererArg === 'json') {
+          return response.json();
+        } else {
+          return response.text();
+        }
       }
     } catch (error: any) {
       throw new Error(`Failed to make API request: ${error.message}`);
@@ -847,6 +851,7 @@ export class PrestApiClient {
     | undefined
     | {
         get: (url: string) => Promise<Response>;
+        export: (url: string, body: any) => Promise<Response>;
         post: (url: string, body: any) => Promise<Response>;
         put: (url: string, body: any) => Promise<Response>;
         delete: (url: string) => Promise<Response>;
@@ -887,6 +892,23 @@ export class PrestApiClient {
           }
 
           return response;
+        },
+        export: async (url: string, body: any) => {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'text/csv',  // 指定接受 CSV 格式
+              Authorization: authHeader
+            },
+            body: JSON.stringify(body),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to export data: ${response.statusText}`);
+          }
+
+          return response;  // 返回二进制数据
         },
         post: async (url: string, body: any) => {
           const response = await fetch(url, {
@@ -947,7 +969,7 @@ export class PrestApiClient {
    * @returns The corresponding HTTP client method.
    * @throws An error if the client is not initialized or the method is invalid.
    */
-  getHttpClientMethod(method: 'get' | 'post' | 'put' | 'delete') {
+  getHttpClientMethod(method: 'get' | 'post' | 'put' | 'delete' | 'export') {
     if (!this.client) {
       throw new Error('Client not initialized');
     }
@@ -961,6 +983,8 @@ export class PrestApiClient {
         return this.client.put;
       case 'delete':
         return this.client.delete;
+      case 'export':
+        return this.client.export;
       default:
         throw new Error('Invalid HTTP method');
     }
@@ -982,17 +1006,17 @@ export class PrestApiClient {
      * @example
      * const response = await client.table('user').list();
      * // Queries the rows of the 'user' table. Public schema is used by default.
-     * // Executes GET `/:database/:schema/:table`.
+     * // Executes GET `/:schema/:table`.
      *
      * @example
      * const response = await client.table('private.user').list();
      * // Retrieves the rows of the 'user' table in the 'private' schema.
-     * // Executes GET `/:database/:schema/:table`.
+     * // Executes GET `/:schema/:table`.
      *
      * @example
      * const response = await client.table('public.').list();
      * // Retrieves a list of tables in the 'public' schema.
-     * // Executes GET `/:database/:schema`.
+     * // Executes GET `/:schema`.
      * // Note: The dot at the end is to ignore the table name.
      */
     list: () => ChainedQuery;
@@ -1006,9 +1030,22 @@ export class PrestApiClient {
      * @example
      * const response = await client.table('user').show();
      * // Retrieves data from the 'user' table.
-     * // Executes GET `/show/:database/:schema/:table`.
+     * // Executes GET `/show/:schema/:table`.
      */
     show: () => ChainedQuery;
+
+    /**
+     * Retrieves data from the specified table.
+     *
+     * @returns A promise that resolves with the data from the table.
+     * @throws An error if fetching data from the table fails.
+     *
+     * @example
+     * const response = await client.table('user').show();
+     * // Retrieves data from the 'user' table.
+     * // Executes GET `/show/:schema/:table`.
+     */
+    export: (data: any) => ChainedQuery;
 
     /**
      * Inserts data into the specified table.
@@ -1024,7 +1061,7 @@ export class PrestApiClient {
      *   picture: '\\x',
      * });
      * // Inserts a new row into the 'user' table.
-     * // Executes POST `/:database/:schema/:table`.
+     * // Executes POST `/:schema/:table`.
      */
     insert: (data: any) => ChainedQuery;
 
@@ -1083,7 +1120,7 @@ export class PrestApiClient {
      *   }
      * );
      * // Updates data in the 'user' table where 'user_id' equals 'userIdToUpdate'.
-     * // Executes PUT `/:database/:schema/:table?field=value`.
+     * // Executes PUT `/:schema/:table?field=value`.
      */
     update: (data: any) => ChainedQuery;
 
@@ -1101,7 +1138,7 @@ export class PrestApiClient {
      *   userIdToDelete // Value of the field to filter by
      * );
      * // Deletes data from the 'user' table where 'user_id' equals 'userIdToDelete'.
-     * // Executes DELETE `/:database/:schema/:table?field=value`.
+     * // Executes DELETE `/:schema/:table?field=value`.
      */
     delete: () => ChainedQuery;
   } {
@@ -1125,10 +1162,13 @@ export class PrestApiClient {
         const baseUrl = `${this.base_url}/${schemaName}/${tableName}`;
         return new ChainedQuery(this, baseUrl, 'get', null);
       },
-
       show: (): ChainedQuery => {
         const baseUrl = `${this.base_url}/show/${schemaName}/${tableName}`;
         return new ChainedQuery(this, baseUrl, 'get', null);
+      },
+      export: (data: any): ChainedQuery => {
+        const baseUrl = `${this.base_url}/export/${schemaName}/${tableName}`;
+        return new ChainedQuery(this, baseUrl, 'export', data);
       },
       insert: (data: any): ChainedQuery => {
         const baseUrl = `${this.base_url}/${schemaName}/${tableName}`;
@@ -1155,7 +1195,7 @@ export class PrestApiClient {
    * @param Script - The name of the table.
    * @returns An object with methods for interacting with the table.
    */
-  query(scriptName: string | undefined): {
+  query(sPath: string | undefined): {
     /**
      * Retrieves the structure of the specified table.
      *
@@ -1163,42 +1203,47 @@ export class PrestApiClient {
      * @throws An error if fetching the table structure fails.
      *
      * @example
-     * const response = await client.table('user').list();
-     * // Queries the rows of the 'user' table. Public schema is used by default.
-     * // Executes GET `/:database/:schema/:table`.
-     *
-     * @example
-     * const response = await client.table('private.user').list();
-     * // Retrieves the rows of the 'user' table in the 'private' schema.
-     * // Executes GET `/:database/:schema/:table`.
-     *
-     * @example
-     * const response = await client.table('public.').list();
-     * // Retrieves a list of tables in the 'public' schema.
-     * // Executes GET `/:database/:schema`.
-     * // Note: The dot at the end is to ignore the table name.
+     * const response = await client.query('private.user').list();
+     * // Retrieves the rows of the 'user' sql in the 'private' path.
+     * // Executes GET `/_queries/:path/:sql`.
      */
     list: () => ChainedQuery;
+    /**
+     * Retrieves the structure of the specified table.
+     *
+     * @returns A promise that resolves with the table structure.
+     * @throws An error if fetching the table structure fails.
+     *
+     * @example
+     * const response = await client.query('private.user').list();
+     * // Retrieves the rows of the 'user' sql in the 'private' path.
+     * // Executes GET `/_queries/:path/:sql`.
+     */
+    export: (data: any) => ChainedQuery;
   } {
     if (!this.client) {
       throw new Error('Client not initialized');
     }
 
-    if (!scriptName) {
+    if (!sPath) {
       throw new Error('script name is required');
     }
 
     let path: string = '';
-    if (scriptName.includes('.')) {
-      const parts = scriptName.split('.');
-      path = parts[0] || scriptName;
-      scriptName = parts[1];
+    if (sPath.includes('.')) {
+      const parts = sPath.split('.');
+      path = parts[0] || sPath;
+      sPath = parts[1];
     }
 
     return {
       list: (): ChainedQuery => {
-        const baseUrl = `${this.base_url}/_queries/${path}/${scriptName}`;
+        const baseUrl = `${this.base_url}/_queries/${path}/${sPath}`;
         return new ChainedQuery(this, baseUrl, 'get', null);
+      },
+      export: (data: any): ChainedQuery => {
+        const baseUrl = `${this.base_url}/_queries/export/${path}/${sPath}`;
+        return new ChainedQuery(this, baseUrl, 'export', data);
       }
     };
   }

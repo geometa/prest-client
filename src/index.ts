@@ -1,2 +1,2 @@
-export { PrestApiClient } from './api/client';
-export type { PrestApiClientOptions } from './api/client';
+export { PrestApiClient } from './api/prest';
+export type { PrestApiClientOptions } from './api/prest';
