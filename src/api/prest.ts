@@ -130,12 +130,12 @@ class ChainedQuery {
    * @example
    * ```typescript
    * // Count the total number of products
-   * const query = client.table('products')
+   * const query = client.table('products').list()
    *   .count()
    *   .execute();
    *
    * // Count the number of active users
-   * const query = client.table('users')
+   * const query = client.table('users').list()
    *   .count('is_active')
    *   .execute();
    * ```
@@ -157,12 +157,12 @@ class ChainedQuery {
    * @example
    * ```typescript
    * // Check if there are any active orders
-   * const query = client.table('orders')
+   * const query = client.table('orders').list()
    *   .countFirst(true)
    *   .execute();
    *
    * // Retrieve the first product
-   * const query = client.table('products')
+   * const query = client.table('products').list()
    *   .countFirst()
    *   .execute();
    * ```
@@ -183,7 +183,7 @@ class ChainedQuery {
    * @example
    * ```typescript
    * // Retrieve products in XML format
-   * const query = client.table('products')
+   * const query = client.table('products').list()
    *   .renderer('xml')
    *   .execute();
    * ```
@@ -695,6 +695,7 @@ class ChainedQuery {
    * @param start (optional) The lower bound of the range (inclusive).
    * @param end (optional) The upper bound of the range (inclusive).
    * @returns A chained query object for further building the query.
+   * @example const query = client.table('users').list().filterRange('age', 18, 30).execute();
    */
   filterRange(field: string, start?: any, end?: any): ChainedQuery {
     if (start === 0 || start) {
